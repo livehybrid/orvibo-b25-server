@@ -6,13 +6,22 @@ const httpPort = 3000;
 
 // Create a settings object to pass PK key and map sockets to names
 const settings = {
-    LOG_PACKET: false, //Show incoming packet data from the socket
-    ORVIBO_KEY: '', // put your PK key here as plain text (See Readme)
+    LOG_PACKET: true, //Show incoming packet data from the socket
+    ORVIBO_KEY: 'khggd54865SNJHGF', // put your PK key here as plain text (See Readme)
+    REDIRECT_AFTER_ACTION: true, //Redirect to getConnectedSockets JSON view after action (true) or acknowledge action (false)
     plugInfo : [
         // Add uid and a name so you can easily identify the connected sockets
         {
-            uid :'53dd7fe74de7',
-            name: "Lamp in Kitchen"
+            uid :'5ccf7f226be5',
+            name: "Landing"
+        },
+        {
+            uid :'5ccf7f22f929',
+            name: "Lamp in Lounge"
+        },
+        {
+            uid :'5ccf7f22fa04',
+            name: "Coffee Machine"
         },
     ],
 };
@@ -26,6 +35,11 @@ orvbio.on('plugConnected', ({uid, name}) => {
 
 // If the socket state is updated this event will fire
 orvbio.on('plugStateUpdated', ({uid, state , name}) => {
+    if (state==0) {
+      stateText = "On";
+    } else {
+      stateText = "Off";
+    }
     console.log(`Plug ${name} ${uid} updated state ${state}`);
 });
 
@@ -57,14 +71,25 @@ orvbio.startServer();
 const requestHandler = (request, response) => {
     response.writeHead(200, {'Content-Type': 'application/json'});
     let q = url.parse(request.url, true).query;
+    let result = false;
     if (q.uid != null) {
-        orvbio.toggleSocket(q.uid);
+      if (q.mode != null) {
+        //Mode change requested
+        result = orvbio.setSocketMode(q.uid,q.mode);
+        console.log("Setting socket to uid="+q.uid+" mode="+q.mode)
+      } else {
+        console.log("toggle uid="+q.uid+" mode="+q.mode)
+
+        result = orvbio.toggleSocket(q.uid);
+      }
     }
-
+    if ((result && settings.REDIRECT_AFTER_ACTION) || (!result)) {
+    // if not already got a result or has result and redirection requested then
     // Get all currently connected sockets, their names and states
-    let sockets = orvbio.getConnectedSocket();
-
-    response.end(JSON.stringify(sockets));
+    let sockets = orvbio.getConnectedSockets();
+    result = JSON.stringify(sockets);
+  }
+    response.end(result);
 };
 
 const httpServer = http.createServer(requestHandler);

@@ -5,7 +5,7 @@ const Utils = require('./Utils');
 const Settings = require('./OrviboSettings');
 const EventEmitter = require('events').EventEmitter;
 
-let ORVIBO_KEY = Settings.ORVIBO_KEY;
+let ORVIBO_KEY = 'khggd54865SNJHGF';
 let LOG_PACKET = Settings.LOG_PACKET;
 let PLUG_INFO = Settings.plugInfo;
 
@@ -180,6 +180,55 @@ Orvibo.prototype.startServer = function() {
     this.server.listen(port, bindHost);
 };
 
+let findSocketId = (uid) => {
+  let socketId = null;
+  for (const key of Object.keys(packetData)) {
+      if (packetData[key].uid === uid) {
+          socketId = key;
+          break
+      }
+  }
+  return socketId;
+}
+
+let findSocket = (uid) => {
+    socketId = findSocketId(uid);
+    if (socketId === null) {
+        console.log('Could not find socket ' + uid);
+        return;
+    }
+    let socket = plugConnections.find(s => s.id === socketId);
+    return socket;
+};
+
+Orvibo.prototype.setSocketMode = function(uid,mode) {
+  if (mode == "ON") mode = 0;
+  if (mode == "OFF") mode = 1;
+
+  let socket = findSocket(uid);
+  if (socket != null) {
+      let socketData = getData(findSocketId(uid));
+      let currentState = socketData.state;
+      if (currentState == mode) {
+        console.log('Socket is already set to state='+currentState);
+        return;
+      } else {
+        //Set to new state
+        let data = Object.assign({}, socketData,{
+            state: socketData.state === 1 ? 0 : 1,
+            serial: Utils.generateRandomNumber(8),
+            clientSessionId:  socketData.clientSessionId ? socketData.clientSessionId : Utils.generateRandomHexValue(32),
+            deviceId: socketData.deviceId ? socketData.deviceId : Utils.generateRandomHexValue(32),
+        });
+
+        setData(socket.id, data);
+
+        let packet = PacketBuilder.updatePacket(data);
+        socket.write(packet);
+      }
+  }
+};
+
 Orvibo.prototype.toggleSocket = function(uid) {
 
     let socketId = null;
@@ -213,13 +262,19 @@ Orvibo.prototype.toggleSocket = function(uid) {
     }
 };
 
-Orvibo.prototype.getConnectedSocket = function() {
+Orvibo.prototype.getConnectedSockets = function() {
     let sockets = [];
     for (const key of Object.keys(packetData)) {
         let socketData = getData(key);
+    if (socketData.state==0) {
+      stateText = "On";
+    } else {
+      stateText = "Off";
+    }
         sockets.push({
             name: socketData.name,
             state: socketData.state,
+            stateText: stateText,
             uid: socketData.uid,
             modelId: socketData.modelId
         });
