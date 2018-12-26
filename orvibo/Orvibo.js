@@ -201,9 +201,21 @@ let findSocket = (uid) => {
     return socket;
 };
 
+Orvibo.prototype.getSocketMode = function(uid) {
+  let socket = findSocket(uid);
+  if (socket != null) {
+      let socketData = getData(findSocketId(uid));
+      let currentState = socketData.state;
+      return currentState;
+  } else {
+    console.log("Could not get socket state for socket uid="+uid);
+    return false;
+  }
+}
+
 Orvibo.prototype.setSocketMode = function(uid,mode) {
-  if (mode == "ON") mode = 0;
-  if (mode == "OFF") mode = 1;
+  if (mode == "ON" || mode == 0) mode = 0;
+  if (mode == "OFF" || mode == 1) mode = 1;
 
   let socket = findSocket(uid);
   if (socket != null) {
